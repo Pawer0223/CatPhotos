@@ -75,21 +75,32 @@ const IMAGE_PATH_PREFIX = 'https://fe-dev-matching-2021-03-serverlessdeploymentb
 function	ImageView({$app, initialState}) {
 	this.state = initialState;
 	this.$target = document.createElement('div');
-	this.$target.className = "Modal ImageView";
-
+	this.$target.className = "Modal";
+	this.$target.addEventListener("keydown", (e) => {
+		console.log(e);
+	})
+	this.$target.addEventListener('click', (e) => {
+		if (e.target === e.currentTarget) {
+			this.$target.style.display = 'none';
+			isOpen = false;
+		}
+	})
 	$app.appendChild(this.$target);
-
 	this.setState = (nextState) => {
 		this.state = nextState;
 		this.render();
 	}
-
 	this.render = () => {
 		this.$target.innerHTML =
 		`<div class="content">${this.state ? `<img src="${IMAGE_PATH_PREFIX}${this.state}">` : ''}</div>`
 		this.$target.style.display = this.state ? 'block' : 'none';
+		isOpen = true;
 	}
-	this.render();
+	// modalOpen이 false이면 esc키 이벤트 안먹히도록, true이면 먹히도록
+
+	// ImageView의 render가 호출되면서 block으로 바뀔 때, modalOepn의 상태를 true로 변경 함.
+
+	// 이후 ESC or Click하면 false 로 바뀌어야 함
 }
 
 function	App($app) {
@@ -162,7 +173,7 @@ function	App($app) {
 					})
 				}
 			} catch(e) {
-				new Error('Prev Error');
+				new Error(e.message);
 			}
 		}
 	})
@@ -176,7 +187,6 @@ function	App($app) {
 		})
 		imageView.setState(this.state.selectedFilePath)
 	}
-
 	const init = async () => {
 		try {
 			const rootNodes = await request();
@@ -186,17 +196,16 @@ function	App($app) {
 				nodes: rootNodes
 			});
 		} catch (e) {
-			throw Error("async error");
+			throw Error(e.message);
 		}
 	}
-
 	init();
 }
 
 const API_END_POINT = 'https://zl3m4qq0l9.execute-api.ap-northeast-2.amazonaws.com/dev';
+let isOpen = false;
 
 const request = async (nodeId) => {
-
 	try {
 		const res = await fetch(`${API_END_POINT}/${nodeId ? nodeId : ''}`);
 		if (!res.ok) {
@@ -207,5 +216,13 @@ const request = async (nodeId) => {
 		throw new Error(`Somthing .. Error.. ${e.message}`);
 	}
 }
+
+window.addEventListener('keydown', (e) => {
+	if (isOpen) {
+		if (e.key === 'Escape')
+		document.querySelector('.Modal').style.display = 'none';
+		isOpen = false;
+	}
+})
 
 new App(document.querySelector('.app'));
