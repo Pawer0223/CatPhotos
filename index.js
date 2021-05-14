@@ -1,9 +1,11 @@
-function	Nodes ({$app, initialState, onClick}) {
+function	Nodes ({$app, initialState, onClick, onBackClick}) {
 	
 	this.state = initialState;
 	this.$target = document.createElement('div');
 	this.$target.className = 'Nodes';
 	this.onClick = onClick;
+	this.onBackClick = onBackClick;
+
 	$app.appendChild(this.$target);
 
 	this.setState = nextState => {
@@ -34,8 +36,12 @@ function	Nodes ({$app, initialState, onClick}) {
 		this.$target.querySelectorAll('.Node').forEach($node => {
 			$node.addEventListener('click', (e) => {
 				const nodeId = e.currentTarget.dataset.nodeId;
+				// prev누른 경우, nodeId가 없다면 prev를 누른거임.
+				if (!nodeId) {
+					this.onBackClick();
+				}
 				const selectedNode = this.state.nodes.find(node => node.id === nodeId);
-				// 선택 된 노드가 존재한다면 이벤트 발생.
+				// 선택 된 노드의 onClick함수 수행.
 				if (selectedNode) {
 					this.onClick(selectedNode);
 				}
@@ -117,6 +123,7 @@ function	App($app) {
 					const nextNodes = await request(node.id);
 					this.setState({
 						...this.state,
+						isRoot: false,
 						depth: [...this.state.depth, node],
 						nodes: nextNodes
 					})
@@ -128,6 +135,34 @@ function	App($app) {
 				}
 			} catch(e) {
 				new Error('somthing error');
+			}
+		},
+		onBackClick: async () => {
+			try {
+				// 이전 상태를 복사.
+				const nextState = { ...this.state };
+				// 현지 디렉토리를 빼기.
+				nextState.depth.pop();
+				// root면 null, 아니면 가장 마지막 요소
+				const prevNodeId = nextState.depth.length === 0 ? null : nextState.depth[nextState.depth.length - 1].id
+				if (prevNodeId === null) {
+					const rootNodes = await request();
+					this.setState({
+						...nextState,
+						isRoot: true,
+						nodes: rootNodes
+					})
+				} else {
+					const prevNodes = await request(prevNodeId);
+
+					this.setState({
+						...nextState,
+						isRoot: false,
+						nodes: prevNodes
+					})
+				}
+			} catch(e) {
+				new Error('Prev Error');
 			}
 		}
 	})
