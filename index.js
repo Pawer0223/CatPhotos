@@ -33,7 +33,7 @@ function	Nodes ({$app, initialState, onClick}) {
 		// Node들에 이벤트 붙여주기
 		this.$target.querySelectorAll('.Node').forEach($node => {
 			$node.addEventListener('click', (e) => {
-				const { nodeId } = e.target.dataset;
+				const nodeId = e.currentTarget.dataset.nodeId;
 				const selectedNode = this.state.nodes.find(node => node.id === nodeId);
 				// 선택 된 노드가 존재한다면 이벤트 발생.
 				if (selectedNode) {
@@ -46,6 +46,7 @@ function	Nodes ({$app, initialState, onClick}) {
 }
 
 function	Breadcrumb({ $app, initialState }) {
+
 	this.state = initialState;
 	this.$target = document.createElement('nav');
 	this.$target.className = 'Breadcrumb';
@@ -63,13 +64,41 @@ function	Breadcrumb({ $app, initialState }) {
 	}
 }
 
+const IMAGE_PATH_PREFIX = 'https://fe-dev-matching-2021-03-serverlessdeploymentbuck-t3kpj3way537.s3.ap-northeast-2.amazonaws.com/public';
+
+function	ImageView({$app, initialState}) {
+	this.state = initialState;
+	this.$target = document.createElement('div');
+	this.$target.className = "Modal ImageView";
+
+	$app.appendChild(this.$target);
+
+	this.setState = (nextState) => {
+		this.state = nextState;
+		this.render();
+	}
+
+	this.render = () => {
+		this.$target.innerHTML =
+		`<div class="content">${this.state ? `<img src="${IMAGE_PATH_PREFIX}${this.state}">` : ''}</div>`
+		this.$target.style.display = this.state ? 'block' : 'none';
+	}
+	this.render();
+}
+
 function	App($app) {
 
 	this.state = {
 		isRoot: false,
 		nodes: [],
-		depth: []
+		depth: [],
+		selectedFilePath: null
 	}
+
+	const imageView = new ImageView({
+		$app,
+		initialState: this.state.selectedNodeImage
+	})
 
 	const breadcrumb = new Breadcrumb({
 		$app,
@@ -82,11 +111,23 @@ function	App($app) {
 			isRoot: this.state.isRoot,
 			nodes: this.state.nodes
 		},
-		onClick: (node) => {
-			if (node.type === 'DIRECTORY') {
-				console.log('directory working ... ');
-			} else if (node.type === 'FILE') {
-				console.log('file working ... ');
+		onClick: async (node) => {
+			try {
+				if (node.type === 'DIRECTORY') {
+					const nextNodes = await request(node.id);
+					this.setState({
+						...this.state,
+						depth: [...this.state.depth, node],
+						nodes: nextNodes
+					})
+				} else if (node.type === 'FILE') {
+					this.setState({
+						...this.state,
+						selectedFilePath: node.filePath
+					})
+				}
+			} catch(e) {
+				new Error('somthing error');
 			}
 		}
 	})
@@ -98,6 +139,7 @@ function	App($app) {
 			isRoot: this.state.isRoot,
 			nodes: this.state.nodes
 		})
+		imageView.setState(this.state.selectedFilePath)
 	}
 
 	const init = async () => {
@@ -107,7 +149,7 @@ function	App($app) {
 				...this.state,
 				isRoot: true,
 				nodes: rootNodes
-			})
+			});
 		} catch (e) {
 			throw Error("async error");
 		}
