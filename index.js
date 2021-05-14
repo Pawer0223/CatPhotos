@@ -76,12 +76,10 @@ function	ImageView({$app, initialState}) {
 	this.state = initialState;
 	this.$target = document.createElement('div');
 	this.$target.className = "Modal";
-	this.$target.addEventListener("keydown", (e) => {
-		console.log(e);
-	})
 	this.$target.addEventListener('click', (e) => {
 		if (e.target === e.currentTarget) {
 			this.$target.style.display = 'none';
+			this.state = 0;
 			isOpen = false;
 		}
 	})
@@ -96,11 +94,6 @@ function	ImageView({$app, initialState}) {
 		this.$target.style.display = this.state ? 'block' : 'none';
 		isOpen = true;
 	}
-	// modalOpen이 false이면 esc키 이벤트 안먹히도록, true이면 먹히도록
-
-	// ImageView의 render가 호출되면서 block으로 바뀔 때, modalOepn의 상태를 true로 변경 함.
-
-	// 이후 ESC or Click하면 false 로 바뀌어야 함
 }
 
 function	App($app) {
@@ -109,8 +102,14 @@ function	App($app) {
 		isRoot: false,
 		nodes: [],
 		depth: [],
-		selectedFilePath: null
+		selectedFilePath: null,
+		isLoading: false
 	}
+
+	const loading = new Loading({
+		$app, 
+		initialState: this.state.isLoading
+	});
 
 	const imageView = new ImageView({
 		$app,
@@ -131,6 +130,11 @@ function	App($app) {
 		onClick: async (node) => {
 			try {
 				if (node.type === 'DIRECTORY') {
+					this.setState({
+						...this.state,
+						isLoading: true,
+						selectedFilePath: null
+					})
 					const nextNodes = await request(node.id);
 					this.setState({
 						...this.state,
@@ -146,34 +150,53 @@ function	App($app) {
 				}
 			} catch(e) {
 				new Error('somthing error');
+			} finally {
+				this.setState({
+					...this.state,
+					isLoading: false
+				})
 			}
 		},
 		onBackClick: async () => {
 			try {
 				// 이전 상태를 복사.
-				const nextState = { ...this.state };
+				const nextState = { ...this.state, selectedFilePath: null };
 				// 현지 디렉토리를 빼기.
 				nextState.depth.pop();
 				// root면 null, 아니면 가장 마지막 요소
 				const prevNodeId = nextState.depth.length === 0 ? null : nextState.depth[nextState.depth.length - 1].id
 				if (prevNodeId === null) {
+					this.setState({
+						...this.state,
+						isLoading: true,
+						selectedFilePath: null
+					})
 					const rootNodes = await request();
 					this.setState({
 						...nextState,
 						isRoot: true,
-						nodes: rootNodes
+						nodes: rootNodes,
 					})
 				} else {
+					this.setState({
+						...this.state,
+						isLoading: true,
+						selectedFilePath: null
+					})
 					const prevNodes = await request(prevNodeId);
-
 					this.setState({
 						...nextState,
 						isRoot: false,
-						nodes: prevNodes
+						nodes: prevNodes,
 					})
 				}
 			} catch(e) {
 				new Error(e.message);
+			} finally {
+				this.setState({
+					...this.state,
+					isLoading: false
+				})
 			}
 		}
 	})
@@ -185,10 +208,15 @@ function	App($app) {
 			isRoot: this.state.isRoot,
 			nodes: this.state.nodes
 		})
-		imageView.setState(this.state.selectedFilePath)
+		imageView.setState(this.state.selectedFilePath);
+		loading.setState(this.state.isLoading);
 	}
 	const init = async () => {
 		try {
+			this.setState({
+				...this.state,
+				isLoading: true
+			})
 			const rootNodes = await request();
 			this.setState({
 				...this.state,
@@ -197,9 +225,32 @@ function	App($app) {
 			});
 		} catch (e) {
 			throw Error(e.message);
+		} finally {
+			this.setState({
+				...this.state,
+				isLoading: false
+			})
 		}
 	}
 	init();
+}
+
+function Loading({$app, initialState}) {
+	this.state = initialState;
+	this.$target = document.createElement('div');
+	this.$target.className = 'Loading';
+
+	$app.appendChild(this.$target);
+
+	this.setState = (nextState) => {
+		this.state = nextState;
+		this.render();
+	}
+
+	this.render = () => {
+		this.$target.innerHTML = `<div class="content"><img src="./assets/nyan-cat.gif"></div>`
+		this.$target.style.display = this.state ? 'block' : 'none';
+	}
 }
 
 const API_END_POINT = 'https://zl3m4qq0l9.execute-api.ap-northeast-2.amazonaws.com/dev';
@@ -220,7 +271,7 @@ const request = async (nodeId) => {
 window.addEventListener('keydown', (e) => {
 	if (isOpen) {
 		if (e.key === 'Escape')
-		document.querySelector('.Modal').style.display = 'none';
+			document.querySelector('.Modal').style.display = 'none';
 		isOpen = false;
 	}
 })
